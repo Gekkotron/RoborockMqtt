@@ -1,4 +1,4 @@
-import miio
+import subprocess
 import paho.mqtt.client as mqtt
 import paho.mqtt.publish as publish
 import threading
@@ -12,10 +12,23 @@ VacuumToken = "515937654d34554c6e36366f3643614e"
 BrokerIp = "localhost"
 ################################################################################
 
-# https://github.com/rytilahti/python-miio/blob/master/miio/vacuum.py
-vac = miio.Vacuum(VacuumIp, VacuumToken)
+def miiocli(command):
+    command_line = f"miiocli -o json_pretty vacuum"
+    command_line += f" --ip {VacuumIp}"
+    command_line += f" --token {VacuumToken}"
+    command_line += f" {command}"
 
-# The callback for when the client receives a CONNACK response from the server.
+    process = subprocess.Popen(command_line, shell=True, stdout=subprocess.PIPE)
+    process.wait()
+
+    return process.stdout.read().rstrip().decode("utf-8")
+
+def sendResultTomqtt(topic, message):
+    if("Error" in message):
+        publish.single(topic="roborock/error", payload=message.replace("Error:", topic + " --> "))
+    else:
+        publish.single(topic=topic, payload=message)
+
 def on_connect(client, userdata, flags, rc):
     print("Connected with result code " + str(rc))
     client.subscribe("roborock/#")
@@ -25,31 +38,20 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     if("roborock/command" in msg.topic):
-        function = getattr(vac, msg.payload.decode("utf-8"))
-        try:
-            result = function()
-            print(result)
-            publish.single(topic="roborock/result", payload=result)
-        except miio.exceptions.DeviceException:
-            print("DeviceException: " + msg.payload.decode("utf-8"))
+        result = miiocli(msg.payload.decode("utf-8"))
+        sendResultTomqtt("roborock/result", result)
 
     print(msg.topic + " " + msg.payload.decode("utf-8"))
 
 def status():
-    try:
-        result = vac.status()
-        publish.single(topic="roborock/status", payload=result)
-    except miio.exceptions.DeviceException:
-        print("DeviceException: status")
+    result = miiocli("status")
+    sendResultTomqtt("roborock/status", result)
 
     threading.Timer(UpdateStatusEvery, status).start()
 
 def consumable_status():
-    try:
-        result = vac.consumable_status()
-        publish.single(topic="roborock/consumable_status", payload=result)
-    except miio.exceptions.DeviceException:
-        print("DeviceException: consumable_status")
+    result = miiocli("consumable_status")
+    sendResultTomqtt("roborock/consumable_status", result)
 
     threading.Timer(UpdateConsumableStatusEvery, consumable_status).start()
 
