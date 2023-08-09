@@ -6,10 +6,10 @@ import threading
 ################################################################################
 UpdateStatusEvery = 600
 UpdateConsumableStatusEvery = 24 * 3600
-UpdateAliveStatusEvery = 120
+UpdateAliveStatusEvery = 240
 VacuumIp = "192.168.1.200"
 VacuumToken = "515937654d34554c6e36366f3643614e"
-BrokerIp = "localhost"
+BrokerIp = "192.168.1.90"
 ################################################################################
 
 def miiocli(command):
@@ -60,6 +60,7 @@ def alive():
 
     threading.Timer(UpdateAliveStatusEvery, alive).start()
 
+print("Launch script")
 client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
