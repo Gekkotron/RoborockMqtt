@@ -38,8 +38,14 @@ def on_connect(client, userdata, flags, rc):
 
 def on_message(client, userdata, msg):
     if("roborock/command" in msg.topic):
-        result = miiocli(msg.payload.decode("utf-8"))
-        sendResultTomqtt("roborock/result", result)
+        command = msg.payload.decode("utf-8")
+        result = miiocli(command)
+        if(command == "status"):
+           sendResultTomqtt("roborock/status", result)
+        elif(command == "consumable_status"):
+           sendResultTomqtt("roborock/consumable_status", result)
+        else:
+           sendResultTomqtt("roborock/result", result)
 
     print(msg.topic + " " + msg.payload.decode("utf-8"))
 
@@ -61,7 +67,7 @@ def alive():
     threading.Timer(UpdateAliveStatusEvery, alive).start()
 
 print("Launch script")
-client = mqtt.Client()
+client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1, "Roborock")
 client.on_connect = on_connect
 client.on_message = on_message
 
